@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import { render } from 'react-dom';
 import { geoMercator, geoPath } from 'd3-geo';
+import { select } from 'd3-selection';
+import { scaleLog } from 'd3-scale';
 import { json } from 'd3-fetch';
 import * as topojson from "topojson-client";
 
@@ -14,11 +16,12 @@ export default class Chloropleth extends Component {
        w: 1200,
        countyData: [],
        educationData: [],
+       countyStates: [],
        p: 50,
     };
     this.createChloropleth = this.createChloropleth.bind(this);
     this.fetchData = this.fetchData.bind(this);
-    this.handleErrors = this.handleErrors.bind(this);
+    // this.handleErrors = this.handleErrors.bind(this);
   }
   componentDidMount() {
     console.log('component mounted!');
@@ -31,55 +34,61 @@ export default class Chloropleth extends Component {
 
   componentDidUpdate() {
     console.log('component updated!')
-    let countyDataStatus = this.state.countyData.hasOwnProperty('objects'),
+    let countyDataStatus = this.state.countyData.length,
         educationDataStatus = this.state.educationData.length;
+    console.log({educationDataStatus});
     if (countyDataStatus && educationDataStatus) {
-      this.createChloropleth(this.state.countyData, this.state.educationData)
+      this.createChloropleth(this.state.countyData, this.state.countyStates, this.state.educationData)
     }
   };
 
-  handleErrors(response) {
-    if (!response.ok) throw Error(response.statusText);
-    else return response
-  }
+  // handleErrors(response) {
+  //   if (!response.ok) throw Error(response.statusText);
+  //   else return response
+  // }
 
   fetchData(address) {
-    fetch(address)
-      .then(this.handleErrors)
-      .then(response => response.json())
+    json(address, (error, data) => {
+      if (error) throw error;
+    })
       .then(data => {
         if (data.hasOwnProperty('type')) {
-          this.setState({ countyData: data })
-        } else {
-          this.setState({ educationData: data })
-        }
+          this.setState({ 
+            countyData: topojson.feature(data, data.objects.counties).features,
+            countyStates: topojson.mesh(data, data.objects.states, (a,b) => (
+              a.id !== b.id
+            ))
+          })
+        } else this.setState({ educationData: data })
       })
   }
 
-  createChloropleth(countyData, educationData) {
+  createChloropleth(countyData, countyStates, educationData) {
     console.log('creating chloropleth...');
-    console.log({ countyData, educationData });
-    const node = this.node;
-
-    const path = geoPath();
-
-    json(countyData, (error, countyData) => {
-      if (error) throw error;
-
-      select(node).append('g')
-        .attr('class', 'counties')
-        .selectAll('path')
-        .data(topojson.feature(countyData, countyData.objects.counties).features)
-        .enter().append('path')
+    console.log({ countyData, countyStates, educationData });
+    const node = this.node,
+          projection = geoMercator(),
+          // path = geoPath().projection(projection),
+          path = geoPath();
+      
+    const fill = scaleLog()
+                  .domain([10, 500])
+                  .range(['green', 'lightgreen']);
+    
+    // console.log('path from geoPath: ', path)
+    select(node).append('g')
+      .attr('class', 'counties')
+      .selectAll('path')
+      .data(countyData)
+      .enter().append('path')
         .attr('d', path)
         .style('fill', d => fill(path.area(d)));
+    
+    select(node).append('path')
+      .datum(countyStates)
+      .attr('class', 'states')
+      .attr('d', path);
       
-      select(node).append('path')
-        .datum(topojson.mesh(countyData, countyData.objects.states, (a,b) => (a.id !== b.id)))
-        .attr('class', 'states')
-        .attr('d', path);
-
-    })
   }
   
   render() {
@@ -98,24 +107,3 @@ render(
   <Chloropleth />,
   document.getElementById('root')
 );
-
-// d3.json("/mbostock/raw/4090846/us.json", function (error, us) {
-//   if (error) throw error;
-
-//   svg.append("g")
-//     .attr("class", "counties")
-//     .selectAll("path")
-//     .data(topojson.feature(us, us.objects.counties).features)
-//     .enter().append("path")
-//     .attr("d", path)
-//     .style("fill", function (d) {
-//       return fill(path.area(d));
-//     });
-
-//   svg.append("path")
-//     .datum(topojson.mesh(us, us.objects.states, function (a, b) {
-//       return a.id !== b.id;
-//     }))
-//     .attr("class", "states")
-//     .attr("d", path);
-// });
