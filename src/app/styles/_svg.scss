@@ -8,10 +8,28 @@ svg {
   -ms-border-radius: 14px;
   -o-border-radius: 14px;
   margin: 20px;
+  margin-top: 5px;
+  padding-top: 2rem;
 }
 
 .states {
   fill: none;
-  stroke: #fff;
+  stroke: rgb(204, 250, 177);
   stroke-linejoin: round;
+}
+
+.counties,.states {
+  transform: translate(150px);
+  -webkit-transform: translate(150px);
+  -moz-transform: translate(150px);
+  -ms-transform: translate(150px);
+  -o-transform: translate(150px);
+}
+
+.counties:hover {
+  cursor: crosshair;
+}
+
+.county:hover {
+  stroke: black;
 }
